@@ -5,6 +5,7 @@
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Upload Your Files</title>
+	<!-- Using Tailwind for quick CSS iteration without a proper build pipeline -->
 	<script src="https://cdn.tailwindcss.com"></script>
 </head>
 
@@ -22,11 +23,12 @@
 				Choose Files
 			</button>
 		</label>
-
+		<!-- This container will contain all the progress bars and status reports for each file -->
 		<div id="progress-container"></div>
 	</div>
 
 	<script>
+		<!-- First we want to establish a bidirectional connection to the server so we can keep in touch for status updates -->
 		const ws = new WebSocket("ws://localhost:3000");
 
 		ws.onopen = () => {
@@ -39,6 +41,7 @@
 			console.log("Received action:", actionData);
 			const { action, fileName } = actionData;
 			switch (action) {
+				// When the server sends a status update, we want to update the progress bar and import report when finished.
 				case "STATUS_UPDATE":
 					const { status, progress, report } = actionData;
 					updateProgress({ fileName, status, progress, report });
@@ -48,6 +51,7 @@
 		};
 
 		ws.onerror = (error) => {
+			// This could be more robust but for now we just report to the console due to time.
 			console.error("WebSocket error:", error);
 		};
 
@@ -55,6 +59,9 @@
 			.querySelector("#fileInput")
 			.addEventListener("change", async (event) => {
 				const files = event.target.files;
+				// Here we iterate all the user's chosen files and begin sending them up.
+				// However we have to send two messages related to each file and need to keep them in the proper order.
+				// To accomplish this we use a for loop combined with a promise to ensure the order is maintained.
 				for (let index = 0; index < files.length; index++) {
 					await new Promise((resolve) => {
 						const file = files[index];
