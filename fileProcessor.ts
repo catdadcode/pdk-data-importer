@@ -1,8 +1,8 @@
-import { workerData, parentPort, resourceLimits } from "worker_threads";
+import { workerData, parentPort } from "worker_threads";
 import { Readable } from "stream";
 import csvParser from "csv-parser";
 import xlsx from "xlsx";
-import { PrismaClient, CredentialType, Person } from "@prisma/client";
+import { PrismaClient, CredentialType } from "@prisma/client";
 import fs from "fs/promises";
 import { setTimeout } from "timers/promises";
 import path from "path";
@@ -16,6 +16,7 @@ const dnsResolveMx = promisify(dns.resolveMx);
 
 const prisma = new PrismaClient();
 
+// Retrieve all stored disposable domains and keep in memory to use for validation later.
 const disposableDomains = await prisma.disposableDomain.findMany();
 
 const { fileName, uniqueName } = workerData as FileData;
@@ -47,7 +48,10 @@ function parseXLSX(fileBuffer: Buffer): Row[] {
 }
 
 async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
+	// Artificially simulate a longer processing time so we can see the progress bar in action.
+	await setTimeout(1000);
 	try {
+		// First we try to validate the row data before we attempt any CRUD operations.
 		await validateRow(fileName, row);
 	} catch (err: any) {
 		parentPort!.postMessage({
@@ -61,7 +65,9 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 		};
 	}
 
+	// Keep track of whether this row is a new record or an update to an existing record.
 	let status: ProcessResult["status"];
+	// Keep track of how many mobile/bluetooth credential invites we need to send.
 	let invites = 0;
 
 	const {
@@ -80,7 +86,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 		expireDate
 	} = row;
 
-	// Find person where personId or email matches.
+	// Attempt to find an existing person.
 	let person = await prisma.person.findFirst({
 		include: {
 			credentials: true,
@@ -94,6 +100,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 		}
 	});
 
+	// If no person exists yet then attempt to create a new one.
 	if (!person) {
 		status = "CREATE";
 		person = await prisma.person.create({
@@ -134,6 +141,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 			acc[key.replace("custom.", "")] = value;
 			return acc;
 		}, {} as Record<string, any>);
+	// Merge new metadata with existing metadata.
 	person.metadata = Object.assign({}, person.metadata, metadata);
 
 	// Create card credentials.
@@ -254,7 +262,8 @@ async function validateRow(fileName: string, row: Row): Promise<void> {
 		errors.push("Invalid first or last name.");
 	}
 
-	// Validate Email (Basic validation, consider using a library for advanced validation)
+	// Validate Email
+	// TODO: Use a robust validation library for advanced validation.
 	if (email && !/^\S+@\S+\.\S+$/.test(email)) {
 		errors.push("Invalid email address.");
 	}
@@ -284,7 +293,7 @@ async function validateRow(fileName: string, row: Row): Promise<void> {
 		}
 	}
 
-	// Placeholder for invalid recipient detection
+	// TODO: Use a third party service for invalid recipient detection.
 
 	// Validate Pin and Duress Pin with BigInt
 	if (
@@ -311,11 +320,12 @@ async function validateRow(fileName: string, row: Row): Promise<void> {
 			last,
 		},
 	});
+	// Persons with the same name are considered a conflict.
 	if (existingPerson) {
 		errors.push(`Person with the name ${first} ${last} already exists.`);
 	}
 
-
+	// Gather all validation errors and throw as one error.
 	if (errors.length > 0) {
 		throw new Error(
 			`Validation error in file ${fileName}: ${errors.join(", ")}`,
