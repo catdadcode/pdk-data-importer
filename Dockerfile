@@ -15,6 +15,7 @@ FROM base as app
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
-COPY ./package.json ./package-lock.json ./
+COPY ./.env ./package.json ./package-lock.json ./
+COPY ./prisma ./prisma
 
 CMD ["npm", "start"]

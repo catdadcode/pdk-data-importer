@@ -2,7 +2,7 @@ import { workerData, parentPort } from "worker_threads";
 import { Readable } from "stream";
 import csvParser from "csv-parser";
 import xlsx from "xlsx";
-import { PrismaClient, CredentialType } from "@prisma/client";
+import prisma from "@prisma/client";
 import fs from "fs/promises";
 import { setTimeout } from "timers/promises";
 import path from "path";
@@ -11,13 +11,15 @@ import debug from "debug";
 import dns from "dns";
 import { promisify } from "util";
 
+const { PrismaClient, CredentialType } = prisma;
+
 const dnsLookup = promisify(dns.lookup);
 const dnsResolveMx = promisify(dns.resolveMx);
 
-const prisma = new PrismaClient();
+const prismaClient = new PrismaClient();
 
 // Retrieve all stored disposable domains and keep in memory to use for validation later.
-const disposableDomains = await prisma.disposableDomain.findMany();
+const disposableDomains = await prismaClient.disposableDomain.findMany();
 
 const { fileName, uniqueName } = workerData as FileData;
 const log = debug(`pdk:fileProcessor:${uniqueName}`);
@@ -87,7 +89,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 	} = row;
 
 	// Attempt to find an existing person.
-	let person = await prisma.person.findFirst({
+	let person = await prismaClient.person.findFirst({
 		include: {
 			credentials: true,
 			groupMemberships: true
@@ -103,7 +105,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 	// If no person exists yet then attempt to create a new one.
 	if (!person) {
 		status = "CREATE";
-		person = await prisma.person.create({
+		person = await prismaClient.person.create({
 			include: {
 				credentials: true,
 				groupMemberships: true
@@ -148,7 +150,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 	for (const card of cards.toString().split(",")) {
 		let credential = person.credentials.find(c => c.type === CredentialType.CARD && c.value === card);
 		if (!credential) {
-			credential = await prisma.credential.create({
+			credential = await prismaClient.credential.create({
 				include: {
 					person: true
 				},
@@ -164,7 +166,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 	// Create or delete bluetooth credentials.
 	const btCredentials = person.credentials.filter(c => c.type === CredentialType.BLUETOOTH);
 	if (bluetooth === 0) {
-		await prisma.credential.deleteMany({
+		await prismaClient.credential.deleteMany({
 			where: {
 				id: {
 					in: btCredentials.map(c => c.id)
@@ -173,7 +175,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 		});
 	} else if (btCredentials.length < bluetooth) {
 		for (let index = 0; index < bluetooth - btCredentials.length; index++) {
-			await prisma.credential.create({
+			await prismaClient.credential.create({
 				include: {
 					person: true
 				},
@@ -189,7 +191,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 	// Create or delete mobile credentials.
 	const mobileCredentials = person.credentials.filter(c => c.type === CredentialType.MOBILE);
 	if (mobile === 0) {
-		await prisma.credential.deleteMany({
+		await prismaClient.credential.deleteMany({
 			where: {
 				id: {
 					in: mobileCredentials.map(c => c.id)
@@ -198,7 +200,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 		});
 	} else if (mobileCredentials.length < mobile) {
 		for (let index = 0; index < mobile - mobileCredentials.length; index++) {
-			await prisma.credential.create({
+			await prismaClient.credential.create({
 				include: {
 					person: true
 				},
@@ -213,7 +215,7 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 
 	// Create or delete group memberships.
 	const groupNames = groups.toString().split(",");
-	const existingGroups = await prisma.group.findMany({
+	const existingGroups = await prismaClient.group.findMany({
 		where: {
 			name: {
 				in: groupNames
@@ -223,12 +225,12 @@ async function processRow(fileName: string, row: Row): Promise<ProcessResult> {
 	// Find groupNames that don't yet exist and create them.
 	const newGroups = groupNames.filter(gn => !existingGroups.some(g => g.name === gn));
 	for (const groupName of newGroups) {
-		const newGroup = await prisma.group.create({
+		const newGroup = await prismaClient.group.create({
 			data: {
 				name: groupName
 			}
 		});
-		await prisma.groupMembership.create({
+		await prismaClient.groupMembership.create({
 			data: {
 				groupId: newGroup.id,
 				personId: person.id
@@ -314,7 +316,7 @@ async function validateRow(fileName: string, row: Row): Promise<void> {
 	}
 
 	// Find person by first and last name.
-	const existingPerson = await prisma.person.findFirst({
+	const existingPerson = await prismaClient.person.findFirst({
 		where: {
 			first,
 			last,

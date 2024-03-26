@@ -107,7 +107,7 @@ wss.on("connection", (ws) => {
 						JSON.stringify({
 							action: "STATUS_UPDATE",
 							fileName,
-              error: err?.message || err
+              status: err?.message || err
 						} as ClientActions),
 					);
 				});

@@ -52,7 +52,7 @@ When I first looked at Tailwind I hated it. I thought it made markup messy looki
 Obviously this is a technical assessment that will not be revisited but I want to note a few things that I would have liked to do if I had more time.
 
 ### Unit Testing
-I had planned to write unit tests that would ensure all the validation logic is robust and that the worker threads are functioning as expected. I was planning to use [Vitest](https://vitest.dev/) for this as it's my second favorite testing framework (the first being the one backed into bun 😉) thanks to its speed and simple yet familiar API surface.
+I had planned to write unit tests that would ensure all the validation logic is robust and that the worker threads are functioning as expected. I was planning to use [Vitest](https://vitest.dev/) for this as it's my second favorite testing framework (the first being the one baked into bun 😉) thanks to its speed and simple yet familiar API surface.
 
 ### Error Handling
 The error handling chain is pretty solid but there are a few places that could be spruced up. There are some asynchronous functions that get passed as callbacks and the invoking party isn't likely checking for a rejected promise, but also the logic being done in those places isn't likely to break and the most important bits do have proper try/catch wrappers. I just wanted to highlight that I am aware of caveats like this and another optimization pass or two would have been good for this project if it were a real thing.

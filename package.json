@@ -9,7 +9,9 @@
 		"build:transpile": "tsc -p ./tsconfig.json",
 		"build:copyfiles": "copyfiles ./index.html ./build",
 		"format": "prettier --write .",
-		"start": "node ./build/server.js"
+		"start": "run-s start:migrate start:app",
+		"start:migrate": "prisma migrate dev",
+		"start:app": "node ./build/server.js"
 	},
 	"type": "module",
 	"keywords": [],
