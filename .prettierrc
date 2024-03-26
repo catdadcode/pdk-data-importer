@@ -1,0 +1,8 @@
+{
+	"arrowParens": "always",
+	"bracketSameLine": true,
+	"singleQuote": false,
+	"useTabs": true,
+	"tabWidth": 3,
+	"singleAttributePerLine": true
+}

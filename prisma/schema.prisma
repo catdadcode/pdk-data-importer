@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DisposableDomain {
+	id String @id @default(uuid())
+
+	domain String
+}
+
+model Person {
+	id String @id @default(uuid())
+	first String @db.VarChar(50)
+	last String @db.VarChar(50)
+	email String? @db.VarChar(255)
+	enabled Boolean @default(true)
+	activeDate DateTime?
+	expireDate DateTime?
+	pin BigInt?
+	pinDuress BigInt?
+	metadata Json?
+	credentials Credential[]
+	groupMemberships GroupMembership[]
+}
+
+enum CredentialType {
+	BLUETOOTH
+	CARD
+	MOBILE
+}
+
+model Credential {
+	id String @id @default(uuid())
+	value String?
+	type CredentialType
+	person Person? @relation(fields: [personId], references: [id])
+	personId String
+}
+
+model Group {
+	id String @id @default(uuid())
+	name String
+	groupMembers GroupMembership[]
+}
+
+model GroupMembership {
+	@@id([personId, groupId])
+	personId String
+	groupId String
+
+	person Person @relation(fields: [personId], references: [id])
+	group Group @relation(fields: [groupId], references: [id])
+}

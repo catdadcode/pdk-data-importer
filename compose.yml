@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+   app:
+      build: ./
+      ports:
+         - "3000:3000"
+
+   postgres:
+      image: postgres
+      restart: always
+      ports:
+         - "5432:5432"
+      environment:
+         POSTGRES_DB: pdkdata
+         POSTGRES_USER: pdkadmin
+         POSTGRES_PASSWORD: letmein

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Upload Your Files</title>
+	<!-- Bringing in Tailwind CSS from CDN for that sweet, sweet styling -->
+	<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-r from-purple-500 to-pink-500 h-screen flex items-center justify-center">
+	<!-- This is our main container, it's gonna look fab -->
+	<div class="container max-w-md mx-auto text-center py-8">
+		<h1 class="text-3xl text-white mb-4">Super Cool File Uploader</h1>
+		<p class="text-gray-200 mb-8">
+			Upload your .csv or .xlsx files and watch the magic happen!
+		</p>
+
+		<!-- Our stylish file input -->
+		<label class="block mb-6">
+			<input id="fileInput" type="file" multiple accept=".csv, .xlsx" style="display: none" />
+			<button class="bg-white py-2 px-4 rounded hover:bg-gray-100 focus:outline-none"
+				onclick="document.querySelector('#fileInput').click();">
+				Choose Files
+			</button>
+		</label>
+
+		<!-- Where the progress bars will show up -->
+		<div id="progress-container"></div>
+	</div>
+
+	<!-- The magic starts here - Tailwind-powered styles and raw JS for functionality -->
+	<script>
+		// Establish WebSocket connection
+		const ws = new WebSocket("ws://localhost:3000");
+
+		ws.onopen = () => {
+			console.log("WebSocket connection opened.");
+			// Enable file input
+			document.querySelector("#fileInput").disabled = false;
+		};
+
+		ws.onmessage = (message) => {
+			const actionData = JSON.parse(message.data);
+			console.log("Received action:", actionData);
+			const { action, fileName } = actionData;
+			switch (action) {
+				case "STATUS_UPDATE":
+					const { status, progress, report } = actionData;
+					updateProgress({ fileName, status, progress, report });
+					break;
+				// Add more actions here
+			}
+		};
+
+		ws.onerror = (error) => {
+			console.error("WebSocket error:", error);
+		};
+
+		document
+			.querySelector("#fileInput")
+			.addEventListener("change", async (event) => {
+				const files = event.target.files;
+				for (let index = 0; index < files.length; index++) {
+					await new Promise((resolve) => {
+						const file = files[index];
+						const reader = new FileReader();
+						reader.onload = (event) => {
+							console.log("Initiating upload...");
+							ws.send(
+								JSON.stringify({
+									action: "INIT_UPLOAD",
+									fileName: file.name,
+									fileSize: file.size,
+								}),
+							);
+							ws.send(event.target.result);
+							resolve();
+						};
+						reader.readAsArrayBuffer(file);
+					});
+				}
+			});
+
+		function updateProgress({
+			fileName,
+			status,
+			progress,
+			report
+		}) {
+			let progressContainer = document.getElementById("progress-container");
+			let progressBarWrapper = document.getElementById("wrapper-" + fileName);
+			if (!progressBarWrapper) {
+				progressBarWrapper = document.createElement("div");
+				progressBarWrapper.id = "wrapper-" + fileName;
+				progressBarWrapper.innerHTML = `
+        <div class="text-sm font-medium text-gray-200 mb-1">${fileName}</div>
+        <div class="bg-white rounded-full h-2 mb-2">
+          <div class="bg-green-500 rounded-full h-2" style="width: 0%"></div>
+        </div>
+        <div class="text-xs text-gray-200 mb-4">Waiting...</div>
+        `;
+				progressBarWrapper.className = "border border-gray-200 p-4 rounded-lg shadow space-y-2 bg-gray-800 mb-2"; // Add styling here
+				progressContainer.appendChild(progressBarWrapper);
+			}
+
+			const progressBar = progressBarWrapper.querySelector(".bg-green-500");
+			if (progress !== undefined) {
+				const progressPercentage = progress ? `${progress}%` : "0%";
+				progressBar.style.width = progressPercentage;
+			}
+
+			const statusText = progressBarWrapper.querySelector(".text-xs");
+			statusText.innerHTML = status.replace(/\n/g, "<br /><br />");
+
+			if (report) {
+				let reportDiv = progressBarWrapper.querySelector(".report-div");
+				if (!reportDiv) {
+					reportDiv = document.createElement("div");
+					reportDiv.className = "report-div text-gray-200 text-xs mt-2";
+					progressBarWrapper.appendChild(reportDiv);
+				}
+				reportDiv.innerHTML = `Records Created: ${report.recordsCreated}<br />`;
+				reportDiv.innerHTML += `Records Updated: ${report.recordsUpdated}<br />`;
+				reportDiv.innerHTML += `Credentials Added: ${report.credentialCount}<br />`;
+			}
+		}
+
+	</script>
+</body>
+
+</html>

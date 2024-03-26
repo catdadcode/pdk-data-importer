@@ -1,0 +1,4 @@
+first,last,cards,groups,email,bluetooth,mobile,enabled,pin,pinDuress,activeDate,expireDate
+Rachel,Green,11111,Friends,friends@gmail.com,1,1,1,98765,987654,2021-01-01,2021-12-31
+John,Dorian,"222,288,888",Scrubs,scrubs@gmail.com,1,1,1,147,258,2021-01-01T10:00:00Z,2021-12-31T10:00:00Z
+John,Snow,"5678.1234,33.667890","Tech,Administrators",testemail@gmail.com,1,2,0,135790,135790,2021-10-31,2021-12-31T10:00:00+00:00
