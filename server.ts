@@ -9,11 +9,7 @@ import path from "path";
 import { Worker } from "worker_threads";
 import { v4 as uuidv4 } from "uuid";
 // Import the types we defined in the types.ts file to keep them organized.
-import type {
-  ClientActions,
-  FileData,
-  ServerActions
-} from "./types";
+import type { ClientActions, FileData, ServerActions } from "./types";
 
 // We use the debug module to print more detailed logs that are easy to disable in production.
 const log = debug("pdk:server");
@@ -21,9 +17,9 @@ const log = debug("pdk:server");
 // Ensure that the uploads/ directory exists to avoid errors when saving files.
 // You'll also notice we are using top-level await in this project :D
 try {
-  await fs.access(path.join(import.meta.dirname, "uploads"));
+	await fs.access(path.join(import.meta.dirname, "uploads"));
 } catch (err) {
-  await fs.mkdir(path.join(import.meta.dirname, "uploads"));
+	await fs.mkdir(path.join(import.meta.dirname, "uploads"));
 }
 
 const app = express();
@@ -37,55 +33,60 @@ wss.on("connection", (ws) => {
 	// Remember the file name passed in via the metadata payload.
 	// This need only be remembered for the subsequent binary message over the socket.
 	// The client code ensures these messages arrive in the correct order regardless of file read time.
-  let lastFileName: string;
+	let lastFileName: string;
 	ws.on("message", async (message) => {
-    let actionData: ServerActions | undefined;
-    let buffer: Buffer | undefined;
+		let actionData: ServerActions | undefined;
+		let buffer: Buffer | undefined;
 		// Try to parse the payload as a JSON string and fall back to a Buffer if it fails.
-    try {
-      actionData = JSON.parse(message.toString()) as ServerActions;
-    } catch {
-      buffer = message as Buffer;
-    }
+		try {
+			actionData = JSON.parse(message.toString()) as ServerActions;
+		} catch {
+			buffer = message as Buffer;
+		}
 
 		// If it was a JSON message then it will contain an action and arguments.
 		if (actionData) {
 			const { action } = actionData;
-      switch (action) {
-        case "INIT_UPLOAD":
-          const { fileName, fileSize } = actionData;
-          lastFileName = fileName;
-          log(`Preparing to receive file: ${fileName}`);
-          // Acknowledge the file upload initiation
-          ws.send(JSON.stringify({
-            action: "STATUS_UPDATE",
-            fileName,
-            fileSize,
-            status: "File upload initiated",
-            progress: 0
-          } as ClientActions));
-          break;
-        // Add more actions here
-      }
+			switch (action) {
+				case "INIT_UPLOAD":
+					const { fileName, fileSize } = actionData;
+					lastFileName = fileName;
+					log(`Preparing to receive file: ${fileName}`);
+					// Acknowledge the file upload initiation
+					ws.send(
+						JSON.stringify({
+							action: "STATUS_UPDATE",
+							fileName,
+							fileSize,
+							status: "File upload initiated",
+							progress: 0,
+						} as ClientActions),
+					);
+					break;
+				// Add more actions here
+			}
 		} else if (buffer) {
 			// Handle binary data for the file itself
-      const fileName = lastFileName;
+			const fileName = lastFileName;
 			// Generate a unique filename so users don't overwrite each other's files in temporary upload storage.
-			const uniqueName = uuidv4(); 
+			const uniqueName = uuidv4();
 
 			try {
 				// Write the file to temporary storage so it can be retrieved later by the worker thread.
-				await fs.writeFile(path.join(import.meta.dirname, "uploads", uniqueName), buffer);
+				await fs.writeFile(
+					path.join(import.meta.dirname, "uploads", uniqueName),
+					buffer,
+				);
 				log(`File received and saved: ${uniqueName}`);
 
 				// Acknowledge the file upload completion
 				ws.send(
 					JSON.stringify({
-            action: "STATUS_UPDATE",
-            fileName,
-            status: "File upload completed",
-            progress: 100
-          } as ClientActions),
+						action: "STATUS_UPDATE",
+						fileName,
+						status: "File upload completed",
+						progress: 100,
+					} as ClientActions),
 				);
 
 				// Send the file for processing
@@ -107,7 +108,7 @@ wss.on("connection", (ws) => {
 						JSON.stringify({
 							action: "STATUS_UPDATE",
 							fileName,
-              status: err?.message || err
+							status: err?.message || err,
 						} as ClientActions),
 					);
 				});
